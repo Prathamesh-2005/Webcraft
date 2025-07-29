@@ -14,6 +14,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 
+//@CrossOrigin(origins="http://localhost:5173")
 @RestController
 @RequestMapping("/")
 public class WebsiteGeneratorController {
@@ -28,13 +29,11 @@ public class WebsiteGeneratorController {
             BindingResult bindingResult) {
 
         try {
-            // Validate request
             if (bindingResult.hasErrors()) {
                 return ResponseEntity.badRequest()
                         .body(new ErrorResponse("Prompt is required"));
             }
 
-            // Generate website
             GenerateResponse response = websiteGeneratorService.generateWebsite(request.getPrompt());
 
             return ResponseEntity.ok(response);
