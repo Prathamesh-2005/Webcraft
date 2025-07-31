@@ -1,9 +1,13 @@
 package com.Jadhav.WebCraft.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 
-public class GenerateResponse {
+public class DeployRequest {
 
+    @NotNull(message = "HTML content is required")
+    @NotBlank(message = "HTML content cannot be empty")
     @JsonProperty("html")
     private String html;
 
@@ -13,14 +17,20 @@ public class GenerateResponse {
     @JsonProperty("js")
     private String js;
 
+    @NotNull(message = "Project name is required")
+    @NotBlank(message = "Project name cannot be empty")
+    @JsonProperty("projectName")
+    private String projectName;
+
     // Default constructor
-    public GenerateResponse() {}
+    public DeployRequest() {}
 
     // Constructor with all fields
-    public GenerateResponse(String html, String css, String js) {
+    public DeployRequest(String html, String css, String js, String projectName) {
         this.html = html;
         this.css = css;
         this.js = js;
+        this.projectName = projectName;
     }
 
     // Getters and Setters
@@ -48,12 +58,21 @@ public class GenerateResponse {
         this.js = js;
     }
 
+    public String getProjectName() {
+        return projectName;
+    }
+
+    public void setProjectName(String projectName) {
+        this.projectName = projectName;
+    }
+
     @Override
     public String toString() {
-        return "GenerateResponse{" +
+        return "DeployRequest{" +
                 "html='" + (html != null ? html.substring(0, Math.min(50, html.length())) + "..." : "null") + '\'' +
                 ", css='" + (css != null ? css.substring(0, Math.min(30, css.length())) + "..." : "null") + '\'' +
                 ", js='" + (js != null ? js.substring(0, Math.min(30, js.length())) + "..." : "null") + '\'' +
+                ", projectName='" + projectName + '\'' +
                 '}';
     }
 }
