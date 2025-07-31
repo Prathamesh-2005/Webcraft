@@ -10,7 +10,6 @@ import org.slf4j.LoggerFactory;
 @Service
 public class GoogleGenAIService {
     private static final Logger logger = LoggerFactory.getLogger(GoogleGenAIService.class);
-
     @Value("${google.ai.api.key}")
     private String apiKey;
 
