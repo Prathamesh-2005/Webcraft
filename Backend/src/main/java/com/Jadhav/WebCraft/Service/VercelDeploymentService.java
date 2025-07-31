@@ -43,9 +43,9 @@ public class VercelDeploymentService {
                 throw new IllegalArgumentException("Vercel token is not configured");
             }
 
-            // Use v6 API which is more reliable for static deployments
+            // Use v13 API which is the current stable version
             ObjectNode deploymentPayload = createStaticDeploymentPayload(htmlContent, cssContent, jsContent, projectName);
-            String deploymentUrl = callVercelAPI(deploymentPayload, "https://api.vercel.com/v6/deployments");
+            String deploymentUrl = callVercelAPI(deploymentPayload, "https://api.vercel.com/v13/deployments");
             logger.info("Successfully deployed: {}", deploymentUrl);
             return deploymentUrl;
 
@@ -65,7 +65,10 @@ public class VercelDeploymentService {
         String sanitizedName = sanitizeProjectName(projectName);
         payload.put("name", sanitizedName);
         payload.put("target", "production");
-        payload.put("public", true); // Make it publicly accessible
+        payload.put("public", true); // Explicitly make deployment public
+
+        // Remove the public flag - it's not needed and may cause issues
+        // Vercel deployments are public by default
 
         logger.debug("Using sanitized project name: {}", sanitizedName);
 
@@ -75,10 +78,11 @@ public class VercelDeploymentService {
         // Create files array
         ArrayNode files = objectMapper.createArrayNode();
 
-        // Add HTML file
+        // Add HTML file - use proper encoding with utf-8 specification
         ObjectNode htmlFile = objectMapper.createObjectNode();
         htmlFile.put("file", "index.html");
-        htmlFile.put("data", Base64.getEncoder().encodeToString(processedHtmlContent.getBytes(StandardCharsets.UTF_8)));
+        htmlFile.put("data", processedHtmlContent); // Send as plain text, not base64
+        htmlFile.put("encoding", "utf-8"); // Specify encoding (must be "utf-8" with hyphen)
         files.add(htmlFile);
         logger.debug("Added HTML file (size: {} chars)", processedHtmlContent.length());
 
@@ -86,7 +90,8 @@ public class VercelDeploymentService {
         if (cssContent != null && !cssContent.trim().isEmpty()) {
             ObjectNode cssFile = objectMapper.createObjectNode();
             cssFile.put("file", "styles.css");
-            cssFile.put("data", Base64.getEncoder().encodeToString(cssContent.getBytes(StandardCharsets.UTF_8)));
+            cssFile.put("data", cssContent); // Send as plain text, not base64
+            cssFile.put("encoding", "utf-8"); // Specify encoding (must be "utf-8" with hyphen)
             files.add(cssFile);
             logger.debug("Added CSS file (size: {} chars)", cssContent.length());
         }
@@ -95,19 +100,29 @@ public class VercelDeploymentService {
         if (jsContent != null && !jsContent.trim().isEmpty()) {
             ObjectNode jsFile = objectMapper.createObjectNode();
             jsFile.put("file", "script.js");
-            jsFile.put("data", Base64.getEncoder().encodeToString(jsContent.getBytes(StandardCharsets.UTF_8)));
+            jsFile.put("data", jsContent); // Send as plain text, not base64
+            jsFile.put("encoding", "utf-8"); // Specify encoding (must be "utf-8" with hyphen)
             files.add(jsFile);
             logger.debug("Added JS file (size: {} chars)", jsContent.length());
         }
 
         payload.set("files", files);
 
-        // Add meta for static deployment (no framework needed for v6)
+        // Add required projectSettings for static deployment
+        ObjectNode projectSettings = objectMapper.createObjectNode();
+        projectSettings.putNull("devCommand");
+        projectSettings.putNull("installCommand");
+        projectSettings.putNull("buildCommand");
+        projectSettings.putNull("outputDirectory");
+        projectSettings.putNull("rootDirectory");
+        projectSettings.putNull("framework"); // Use null for static HTML deployments
+        payload.set("projectSettings", projectSettings);
+
+        // Simplified meta - remove unnecessary fields
         ObjectNode meta = objectMapper.createObjectNode();
-        meta.put("githubDeployment", "0");
         payload.set("meta", meta);
 
-        logger.debug("Created static deployment payload with {} files", files.size());
+        logger.debug("Created static deployment payload with {} files and projectSettings", files.size());
         return payload;
     }
 
@@ -178,8 +193,7 @@ public class VercelDeploymentService {
         logger.debug("Sending payload to Vercel (size: {} chars)", payloadString.length());
 
         // Log payload structure for debugging (without sensitive data)
-        logger.debug("Payload structure - files count: {}, has public flag: {}",
-                payload.get("files").size(), payload.has("public"));
+        logger.debug("Payload structure - files count: {}", payload.get("files").size());
 
         HttpEntity<String> entity = new HttpEntity<>(payloadString, headers);
 
@@ -211,7 +225,7 @@ public class VercelDeploymentService {
 
                     // Wait a moment for deployment to be ready
                     try {
-                        Thread.sleep(2000);
+                        Thread.sleep(3000); // Increased wait time
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
                     }
@@ -249,20 +263,20 @@ public class VercelDeploymentService {
     }
 
     private String waitForDeploymentAndGetUrl(String deploymentId) {
-        String url = "https://api.vercel.com/v6/deployments/" + deploymentId;
+        String url = "https://api.vercel.com/v13/deployments/" + deploymentId;
 
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(vercelToken);
         HttpEntity<String> entity = new HttpEntity<>(headers);
 
-        int maxRetries = 12; // 12 * 5 seconds = 1 minute max
+        int maxRetries = 15; // Increased retry count for better reliability
         int retryCount = 0;
 
         logger.info("Waiting for deployment {} to complete...", deploymentId);
 
         while (retryCount < maxRetries) {
             try {
-                Thread.sleep(5000); // Wait 5 seconds between checks
+                Thread.sleep(4000); // Wait 4 seconds between checks
 
                 ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.GET, entity, Map.class);
 

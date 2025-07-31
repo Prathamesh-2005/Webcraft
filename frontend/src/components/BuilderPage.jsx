@@ -16,6 +16,12 @@ const BuilderPage = () => {
   const [error, setError] = useState('');
   const [generationStage, setGenerationStage] = useState('');
   
+  // Vercel deployment states
+  const [deploying, setDeploying] = useState(false);
+  const [deploymentUrl, setDeploymentUrl] = useState('');
+  const [deploymentHistory, setDeploymentHistory] = useState([]);
+  const [showDeploymentModal, setShowDeploymentModal] = useState(false);
+  
   // Voice input states
   const [isListening, setIsListening] = useState(false);
   const [voiceSupported, setVoiceSupported] = useState(false);
@@ -150,6 +156,15 @@ const BuilderPage = () => {
     "Almost ready..."
   ];
 
+  const deploymentStages = [
+    "Preparing files for deployment...",
+    "Uploading to Vercel...",
+    "Building your website...",
+    "Deploying to production...",
+    "Finalizing deployment...",
+    "Getting live URL..."
+  ];
+
   const handleGenerate = async () => {
     if (!prompt.trim()) return;
     
@@ -187,6 +202,137 @@ const BuilderPage = () => {
     } finally {
       clearInterval(stageInterval);
       setLoading(false);
+      setGenerationStage('');
+    }
+  };
+
+  const handleGenerateAndDeploy = async () => {
+    if (!prompt.trim()) return;
+    
+    setLoading(true);
+    setDeploying(true);
+    setError('');
+    setGenerationStage(generationStages[0]);
+    
+    // Simulate progress stages for generation
+    const stageInterval = setInterval(() => {
+      setGenerationStage(prev => {
+        const currentIndex = generationStages.indexOf(prev);
+        if (currentIndex < generationStages.length - 1) {
+          return generationStages[currentIndex + 1];
+        }
+        return prev;
+      });
+    }, 1000);
+    
+    try {
+      const res = await axios.post('http://localhost:8080/generate-and-deploy', { prompt });
+      
+      // Clear generation stages and start deployment stages
+      clearInterval(stageInterval);
+      setGenerationStage('');
+      
+      // Start deployment progress
+      const deployStageInterval = setInterval(() => {
+        setGenerationStage(prev => {
+          const currentIndex = deploymentStages.indexOf(prev);
+          if (currentIndex < deploymentStages.length - 1) {
+            return deploymentStages[currentIndex + 1];
+          }
+          return prev;
+        });
+      }, 1500);
+      
+      setTimeout(() => clearInterval(deployStageInterval), 9000);
+      
+      // Validate the response
+      if (!res.data || (!res.data.html && !res.data.css && !res.data.js)) {
+        throw new Error('Invalid response from server');
+      }
+      
+      setHtmlCode(res.data.html || '');
+      setCssCode(res.data.css || '');
+      setJsCode(res.data.js || '');
+      setPreviewKey(prev => prev + 1);
+      
+      if (res.data.deployed && res.data.deploymentUrl) {
+        setDeploymentUrl(res.data.deploymentUrl);
+        
+        // Add to deployment history
+        const newDeployment = {
+          id: Date.now(),
+          url: res.data.deploymentUrl,
+          projectName: res.data.projectName,
+          timestamp: new Date().toISOString(),
+          prompt: prompt.substring(0, 50) + (prompt.length > 50 ? '...' : '')
+        };
+        
+        setDeploymentHistory(prev => [newDeployment, ...prev.slice(0, 4)]); // Keep last 5 deployments
+        setShowDeploymentModal(true);
+      }
+      
+    } catch (err) {
+      console.error('Generation and deployment error:', err);
+      setError(err.response?.data?.message || err.message || 'Error generating and deploying website');
+    } finally {
+      setLoading(false);
+      setDeploying(false);
+      setGenerationStage('');
+    }
+  };
+
+  const handleDeployExisting = async () => {
+    if (!htmlCode.trim() && !cssCode.trim() && !jsCode.trim()) {
+      setError('No code to deploy. Please generate a website first.');
+      return;
+    }
+    
+    setDeploying(true);
+    setError('');
+    setGenerationStage(deploymentStages[0]);
+    
+    // Simulate deployment progress
+    const stageInterval = setInterval(() => {
+      setGenerationStage(prev => {
+        const currentIndex = deploymentStages.indexOf(prev);
+        if (currentIndex < deploymentStages.length - 1) {
+          return deploymentStages[currentIndex + 1];
+        }
+        return prev;
+      });
+    }, 1500);
+    
+    try {
+      const projectName = `webcraft-${Date.now()}`;
+      const res = await axios.post('http://localhost:8080/deploy', {
+        html: htmlCode,
+        css: cssCode,
+        js: jsCode,
+        projectName: projectName
+      });
+      
+      if (res.data.deployed && res.data.deploymentUrl) {
+        setDeploymentUrl(res.data.deploymentUrl);
+        
+        // Add to deployment history
+        const newDeployment = {
+          id: Date.now(),
+          url: res.data.deploymentUrl,
+          projectName: res.data.projectName,
+          timestamp: new Date().toISOString(),
+          prompt: 'Existing website deployment'
+        };
+        
+        setDeploymentHistory(prev => [newDeployment, ...prev.slice(0, 4)]);
+        setShowDeploymentModal(true);
+      }
+      
+    } catch (err) {
+      console.error('Deployment error:', err);
+      setError(err.response?.data?.message || err.message || 'Error deploying website');
+    } finally {
+      clearInterval(stageInterval);
+      setDeploying(false);
       setGenerationStage('');
     }
   };
@@ -339,11 +485,59 @@ const BuilderPage = () => {
     setJsCode('');
     setPrompt('');
     setError('');
+    setDeploymentUrl('');
     setPreviewKey(prev => prev + 1);
   }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 text-white">
+      {/* Deployment Success Modal */}
+      {showDeploymentModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 max-w-md w-full border border-gray-700 shadow-2xl">
+            <div className="text-center">
+              <div className="bg-green-500/20 p-3 rounded-full inline-block mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              
+              <h3 className="text-xl font-bold text-white mb-2">🎉 Deployment Successful!</h3>
+              <p className="text-gray-300 mb-4">Your website is now live on Vercel</p>
+              
+              <div className="bg-gray-800/50 p-3 rounded-lg mb-4">
+                <p className="text-sm text-gray-400 mb-1">Live URL:</p>
+                <a 
+                  href={deploymentUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-blue-400 hover:text-blue-300 underline break-all"
+                >
+                  {deploymentUrl}
+                </a>
+              </div>
+              
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => setShowDeploymentModal(false)}
+                  className="flex-1 bg-gray-700 hover:bg-gray-600 py-2 px-4 rounded-lg transition-colors"
+                >
+                  Close
+                </button>
+                <a
+                  href={deploymentUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 py-2 px-4 rounded-lg transition-colors text-center"
+                >
+                  Visit Site
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Fullscreen Modal */}
       {showFullscreen && (
         <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-lg flex flex-col">
@@ -390,7 +584,7 @@ const BuilderPage = () => {
             </Link>
             
             <div className="flex items-center space-x-4">
-              {/* Improved Download Dropdown */}
+              {/* Download Dropdown */}
               <div className="relative group">
                 <button className="px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 rounded-xl shadow-lg font-medium flex items-center space-x-2 transition-all duration-300 transform hover:scale-105">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -441,6 +635,7 @@ const BuilderPage = () => {
                 </div>
               </div>
 
+              {/* Generate Button */}
               <button 
                 className={`px-6 py-3 rounded-xl shadow-lg font-medium flex items-center space-x-2 transition-all duration-300 transform hover:scale-105
                   ${loading 
@@ -448,7 +643,7 @@ const BuilderPage = () => {
                     : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700'
                   }`}
                 onClick={handleGenerate}
-                disabled={loading || !prompt.trim()}
+                disabled={loading || deploying || !prompt.trim()}
               >
                 {loading ? (
                   <>
@@ -467,23 +662,93 @@ const BuilderPage = () => {
                   </>
                 )}
               </button>
+
+              {/* Generate & Deploy Button */}
+              <button 
+                className={`px-6 py-3 rounded-xl shadow-lg font-medium flex items-center space-x-2 transition-all duration-300 transform hover:scale-105
+                  ${loading || deploying
+                    ? 'bg-gray-700 cursor-not-allowed' 
+                    : 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700'
+                  }`}
+                onClick={handleGenerateAndDeploy}
+                disabled={loading || deploying || !prompt.trim()}
+              >
+                {deploying ? (
+                  <>
+                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span>Deploying...</span>
+                  </>
+                ) : (
+                  <>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
+                      <path d="M3 4a1 1 0 011-1h1a1 1 0 011 1v3a1 1 0 001 1h6a1 1 0 001-1V4a1 1 0 011-1h1a1 1 0 011 1v3.632l1.876 1.876a1 1 0 01.293.707v8.785a1 1 0 01-1 1H2a1 1 0 01-1-1V9.215a1 1 0 01.293-.707L3 6.632V4z" />
+                    </svg>
+                    <span>Generate & Deploy</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Loading Status */}
-      {loading && generationStage && (
+      {/* Loading/Deployment Status */}
+      {(loading || deploying) && generationStage && (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
-          <div className="bg-gradient-to-r from-blue-900/50 to-purple-900/50 border border-blue-600/30 text-blue-200 px-6 py-4 rounded-xl flex items-center backdrop-blur-sm">
+          <div className={`border px-6 py-4 rounded-xl flex items-center backdrop-blur-sm ${
+            deploying 
+              ? 'bg-gradient-to-r from-purple-900/50 to-pink-900/50 border-purple-600/30 text-purple-200'
+              : 'bg-gradient-to-r from-blue-900/50 to-purple-900/50 border-blue-600/30 text-blue-200'
+          }`}>
             <div className="flex items-center space-x-3">
               <div className="flex space-x-1">
-                <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce"></div>
-                <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                <div className={`w-2 h-2 rounded-full animate-bounce ${deploying ? 'bg-purple-400' : 'bg-blue-400'}`}></div>
+                <div className={`w-2 h-2 rounded-full animate-bounce ${deploying ? 'bg-purple-400' : 'bg-blue-400'}`} style={{ animationDelay: '0.1s' }}></div>
+                <div className={`w-2 h-2 rounded-full animate-bounce ${deploying ? 'bg-purple-400' : 'bg-blue-400'}`} style={{ animationDelay: '0.2s' }}></div>
               </div>
               <span className="font-medium">{generationStage}</span>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Current Deployment URL Display */}
+      {deploymentUrl && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+          <div className="bg-gradient-to-r from-green-900/50 to-emerald-900/50 border border-green-600/30 text-green-200 px-6 py-4 rounded-xl flex items-center justify-between backdrop-blur-sm">
+            <div className="flex items-center space-x-3">
+              <div className="bg-green-500/20 p-2 rounded-lg">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <div>
+                <p className="font-medium">🎉 Your website is live!</p>
+                <a 
+                  href={deploymentUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-green-300 hover:text-green-200 underline text-sm break-all"
+                >
+                  {deploymentUrl}
+                </a>
+              </div>
+            </div>
+            <a
+              href={deploymentUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg transition-colors flex items-center space-x-2"
+            >
+              <span>Visit Site</span>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+            </a>
           </div>
         </div>
       )}
@@ -594,7 +859,7 @@ const BuilderPage = () => {
                   {voiceSupported && (
                     <button
                       onClick={isListening ? stopListening : startListening}
-                      disabled={loading}
+                      disabled={loading || deploying}
                       className={`p-2 rounded-full transition-all duration-300 flex items-center space-x-2 
                         ${isListening 
                           ? 'bg-red-600 hover:bg-red-700 animate-pulse' 
@@ -617,7 +882,7 @@ const BuilderPage = () => {
                     placeholder="Example: 'Create a responsive landing page for a tech startup with a dark theme...'"
                     value={prompt}
                     onChange={(e) => setPrompt(e.target.value)}
-                    disabled={loading}
+                    disabled={loading || deploying}
                   />
                   
                   {/* Voice indicator */}
@@ -689,7 +954,7 @@ const BuilderPage = () => {
                       lineNumbers: 'on',
                       scrollBeyondLastLine: false,
                       automaticLayout: true,
-                      readOnly: loading,
+                      readOnly: loading || deploying,
                       wordWrap: 'on',
                       formatOnPaste: true,
                       formatOnType: true
@@ -701,12 +966,42 @@ const BuilderPage = () => {
 
             {/* Action Buttons */}
             <div className="grid grid-cols-1 gap-4">
+              {/* Deploy Existing Website Button */}
+              {(htmlCode || cssCode || jsCode) && (
+                <button
+                  className={`w-full py-3 rounded-xl shadow-lg font-medium flex items-center justify-center space-x-2 transition-all duration-300 transform hover:scale-[1.02] 
+                    ${deploying
+                      ? 'bg-gray-700 cursor-not-allowed'
+                      : 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700'
+                    }`}
+                  onClick={handleDeployExisting}
+                  disabled={loading || deploying}
+                >
+                  {deploying ? (
+                    <>
+                      <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      <span>Deploying to Vercel...</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                      </svg>
+                      <span>Deploy to Vercel</span>
+                    </>
+                  )}
+                </button>
+              )}
+              
               <button
                 className="w-full bg-gradient-to-r from-gray-700 to-gray-800 py-3 rounded-xl shadow-lg 
                   font-medium flex items-center justify-center space-x-2 transition-all duration-300 transform hover:scale-[1.02] 
                   border border-gray-600 hover:border-gray-500"
                 onClick={resetAll}
-                disabled={loading}
+                disabled={loading || deploying}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
@@ -715,45 +1010,187 @@ const BuilderPage = () => {
               </button>
             </div>
 
-            {/* Preview Information */}
-            {(htmlCode || cssCode || jsCode) && (
-              <div className="bg-gradient-to-r from-blue-900/30 to-purple-900/30 border border-blue-600/30 rounded-xl p-4">
-                <div className="flex items-start space-x-3">
-                  <div className="bg-blue-500/20 p-2 rounded-lg flex-shrink-0">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+            {/* Deployment History (if any) */}
+            {deploymentHistory.length > 0 && (
+              <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-1 shadow-xl">
+                <div className="bg-gray-900/50 rounded-xl p-5">
+                  <h3 className="text-lg font-semibold mb-4 flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-semibold text-blue-200 mb-1">Preview Mode</h4>
-                    <p className="text-xs text-blue-300/80 leading-relaxed">
-                      Links and navigation are disabled in preview mode to prevent the black screen issue. 
-                      Download your files to test full functionality in a real environment.
-                    </p>
+                    Recent Deployments
+                  </h3>
+                  <div className="space-y-3 max-h-48 overflow-y-auto">
+                    {deploymentHistory.map((deployment) => (
+                      <div key={deployment.id} className="bg-gray-800/50 rounded-lg p-3 flex items-center justify-between">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-200 truncate">
+                            {deployment.prompt}
+                          </p>
+                          <p className="text-xs text-gray-400">
+                            {new Date(deployment.timestamp).toLocaleString()}
+                          </p>
+                        </div>
+                        <a
+                          href={deployment.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="ml-3 bg-indigo-600 hover:bg-indigo-700 px-3 py-1 rounded text-xs transition-colors flex items-center space-x-1"
+                        >
+                          <span>Visit</span>
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                          </svg>
+                        </a>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
             )}
           </div>
         </div>
+
+        {/* Additional Features Section */}
+        <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-gradient-to-br from-blue-900/30 to-blue-800/30 rounded-xl p-6 border border-blue-700/50">
+            <div className="bg-blue-500/20 p-3 rounded-lg inline-block mb-4">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-white mb-2">AI-Powered Generation</h3>
+            <p className="text-gray-300 text-sm">
+              Advanced AI creates complete websites with HTML, CSS, and JavaScript based on your description.
+            </p>
+          </div>
+
+          <div className="bg-gradient-to-br from-purple-900/30 to-purple-800/30 rounded-xl p-6 border border-purple-700/50">
+            <div className="bg-purple-500/20 p-3 rounded-lg inline-block mb-4">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-white mb-2">One-Click Deployment</h3>
+            <p className="text-gray-300 text-sm">
+              Deploy your websites instantly to Vercel with live URLs. No configuration required.
+            </p>
+          </div>
+
+          <div className="bg-gradient-to-br from-green-900/30 to-green-800/30 rounded-xl p-6 border border-green-700/50">
+            <div className="bg-green-500/20 p-3 rounded-lg inline-block mb-4">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-white mb-2">Live Code Editor</h3>
+            <p className="text-gray-300 text-sm">
+              Edit your generated code in real-time with Monaco Editor and see changes instantly.
+            </p>
+          </div>
+        </div>
+
+        {/* Tips Section */}
+        <div className="mt-12 bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-1 shadow-xl">
+          <div className="bg-gray-900/50 rounded-xl p-6">
+            <h3 className="text-xl font-semibold mb-4 flex items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+              </svg>
+              Pro Tips for Better Results
+            </h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <div className="flex items-start space-x-3">
+                  <div className="bg-blue-500/20 p-1 rounded-full flex-shrink-0 mt-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-gray-200">Be Descriptive</h4>
+                    <p className="text-sm text-gray-400">Include details about colors, layout, functionality, and target audience.</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start space-x-3">
+                  <div className="bg-blue-500/20 p-1 rounded-full flex-shrink-0 mt-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-gray-200">Specify Components</h4>
+                    <p className="text-sm text-gray-400">Mention specific elements like headers, navigation, forms, or image galleries.</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start space-x-3">
+                  <div className="bg-blue-500/20 p-1 rounded-full flex-shrink-0 mt-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-gray-200">Include Interactions</h4>
+                    <p className="text-sm text-gray-400">Describe animations, hover effects, or interactive features you want.</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="bg-gray-800/50 rounded-lg p-4">
+                  <h4 className="font-medium text-gray-200 mb-2">Example Prompt:</h4>
+                  <p className="text-sm text-gray-400 italic">
+                    "Create a modern landing page for a tech startup with a dark theme, gradient backgrounds, 
+                    hero section with call-to-action button, features grid, testimonials carousel, and contact form. 
+                    Use blue and purple accent colors with smooth animations."
+                  </p>
+                </div>
+                
+                <div className="flex items-center space-x-2 text-sm text-gray-400">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span>All generated websites are mobile-responsive</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </main>
 
-      <style jsx>{`
-        .animate-ping-once {
-          animation: ping 0.5s cubic-bezier(0,0,0.2,1);
-        }
-        
-        @keyframes ping {
-          0% {
-            transform: scale(1);
-            opacity: 1;
-          }
-          75%, 100% {
-            transform: scale(1.5);
-            opacity: 0;
-          }
-        }
-      `}</style>
+      {/* Footer */}
+      <footer className="bg-gray-900/50 border-t border-gray-700 mt-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="flex flex-col md:flex-row justify-between items-center">
+            <div className="flex items-center space-x-3 mb-4 md:mb-0">
+              <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-2 rounded-lg">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 24 24" fill="none">
+                  <path d="M10 20L14 4M18 8L22 12L18 16M6 16L2 12L6 8" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white">WebCraft</h3>
+                <p className="text-sm text-gray-400">AI-Powered Web Development</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center space-x-6 text-sm text-gray-400">
+              <span className="flex items-center space-x-2">
+                <div className="flex h-2 w-2">
+                  <div className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-green-400 opacity-75"></div>
+                  <div className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></div>
+                </div>
+                <span>All systems operational</span>
+              </span>
+              <span>•</span>
+              <span>Powered by AI & Vercel</span>
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 };
