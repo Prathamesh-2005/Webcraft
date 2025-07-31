@@ -10,13 +10,13 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Controller;
-import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.validation.BindingResult;
+import com.fasterxml.jackson.core.JsonProcessingException;
 
-//@CrossOrigin(origins="http://localhost:5173")
 @RestController
 @RequestMapping("/")
+@CrossOrigin(origins ="http://localhost:5173")
 public class WebsiteGeneratorController {
     private static final Logger logger = LoggerFactory.getLogger(WebsiteGeneratorController.class);
 
@@ -30,28 +30,55 @@ public class WebsiteGeneratorController {
 
         try {
             if (bindingResult.hasErrors()) {
+                String errorMsg = bindingResult.getFieldError() != null ?
+                        bindingResult.getFieldError().getDefaultMessage() : "Validation failed";
                 return ResponseEntity.badRequest()
-                        .body(new ErrorResponse("Prompt is required"));
+                        .body(new ErrorResponse("Validation Error", errorMsg));
             }
+
+            if (request.getPrompt() == null || request.getPrompt().trim().isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body(new ErrorResponse("Validation Error", "Prompt cannot be empty"));
+            }
+
+            logger.info("Generating website for prompt: {}", request.getPrompt().substring(0, Math.min(50, request.getPrompt().length())));
 
             GenerateResponse response = websiteGeneratorService.generateWebsite(request.getPrompt());
 
+            logger.info("Website generated successfully");
             return ResponseEntity.ok(response);
 
-        } catch (IllegalArgumentException e) {
-            logger.error("Invalid response format from AI: {}", e.getMessage());
+        } catch (JsonProcessingException e) {
+            logger.error("JSON parsing error: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new ErrorResponse("Invalid response format from AI", e.getMessage()));
+                    .body(new ErrorResponse("JSON Parsing Error",
+                            "The AI response contains invalid JSON format. Please try again."));
+
+        } catch (IllegalArgumentException e) {
+            logger.error("Invalid AI response format: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ErrorResponse("AI Response Error",
+                            "The AI response is missing required fields. Please try again."));
 
         } catch (Exception e) {
-            logger.error("Generation error: {}", e.getMessage(), e);
+            logger.error("Unexpected error during generation: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new ErrorResponse("Failed to generate website", e.getMessage()));
+                    .body(new ErrorResponse("Generation Error",
+                            "An unexpected error occurred. Please try again later."));
         }
     }
 
     @RequestMapping(value = "/generate", method = RequestMethod.OPTIONS)
     public ResponseEntity<?> handleOptions() {
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok()
+                .header("Access-Control-Allow-Origin", "*")
+                .header("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
+                .header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+                .build();
+    }
+
+    @GetMapping("/health")
+    public ResponseEntity<String> health() {
+        return ResponseEntity.ok("Service is running");
     }
 }
