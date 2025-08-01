@@ -206,82 +206,7 @@ const BuilderPage = () => {
     }
   };
 
-  const handleGenerateAndDeploy = async () => {
-    if (!prompt.trim()) return;
-    
-    setLoading(true);
-    setDeploying(true);
-    setError('');
-    setGenerationStage(generationStages[0]);
-    
-    // Simulate progress stages for generation
-    const stageInterval = setInterval(() => {
-      setGenerationStage(prev => {
-        const currentIndex = generationStages.indexOf(prev);
-        if (currentIndex < generationStages.length - 1) {
-          return generationStages[currentIndex + 1];
-        }
-        return prev;
-      });
-    }, 1000);
-    
-    try {
-      const res = await axios.post('http://localhost:8080/generate-and-deploy', { prompt });
-      
-      // Clear generation stages and start deployment stages
-      clearInterval(stageInterval);
-      setGenerationStage('');
-      
-      // Start deployment progress
-      const deployStageInterval = setInterval(() => {
-        setGenerationStage(prev => {
-          const currentIndex = deploymentStages.indexOf(prev);
-          if (currentIndex < deploymentStages.length - 1) {
-            return deploymentStages[currentIndex + 1];
-          }
-          return prev;
-        });
-      }, 1500);
-      
-      setTimeout(() => clearInterval(deployStageInterval), 9000);
-      
-      // Validate the response
-      if (!res.data || (!res.data.html && !res.data.css && !res.data.js)) {
-        throw new Error('Invalid response from server');
-      }
-      
-      setHtmlCode(res.data.html || '');
-      setCssCode(res.data.css || '');
-      setJsCode(res.data.js || '');
-      setPreviewKey(prev => prev + 1);
-      
-      if (res.data.deployed && res.data.deploymentUrl) {
-        setDeploymentUrl(res.data.deploymentUrl);
-        
-        // Add to deployment history
-        const newDeployment = {
-          id: Date.now(),
-          url: res.data.deploymentUrl,
-          projectName: res.data.projectName,
-          timestamp: new Date().toISOString(),
-          prompt: prompt.substring(0, 50) + (prompt.length > 50 ? '...' : '')
-        };
-        
-        setDeploymentHistory(prev => [newDeployment, ...prev.slice(0, 4)]); // Keep last 5 deployments
-        setShowDeploymentModal(true);
-      }
-      
-    } catch (err) {
-      console.error('Generation and deployment error:', err);
-      setError(err.response?.data?.message || err.message || 'Error generating and deploying website');
-    } finally {
-      setLoading(false);
-      setDeploying(false);
-      setGenerationStage('');
-    }
-  };
-
-  const handleDeployExisting = async () => {
+  const handleDeploy = async () => {
     if (!htmlCode.trim() && !cssCode.trim() && !jsCode.trim()) {
       setError('No code to deploy. Please generate a website first.');
       return;
@@ -320,7 +245,7 @@ const BuilderPage = () => {
           url: res.data.deploymentUrl,
           projectName: res.data.projectName,
           timestamp: new Date().toISOString(),
-          prompt: 'Existing website deployment'
+          prompt: 'Website deployment'
         };
         
         setDeploymentHistory(prev => [newDeployment, ...prev.slice(0, 4)]);
@@ -663,15 +588,15 @@ const BuilderPage = () => {
                 )}
               </button>
 
-              {/* Generate & Deploy Button */}
+              {/* Deploy Button */}
               <button 
                 className={`px-6 py-3 rounded-xl shadow-lg font-medium flex items-center space-x-2 transition-all duration-300 transform hover:scale-105
-                  ${loading || deploying
+                  ${deploying
                     ? 'bg-gray-700 cursor-not-allowed' 
                     : 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700'
                   }`}
-                onClick={handleGenerateAndDeploy}
-                disabled={loading || deploying || !prompt.trim()}
+                onClick={handleDeploy}
+                disabled={loading || deploying || (!htmlCode && !cssCode && !jsCode)}
               >
                 {deploying ? (
                   <>
@@ -683,11 +608,10 @@ const BuilderPage = () => {
                   </>
                 ) : (
                   <>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                      <path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
-                      <path d="M3 4a1 1 0 011-1h1a1 1 0 011 1v3a1 1 0 001 1h6a1 1 0 001-1V4a1 1 0 011-1h1a1 1 0 011 1v3.632l1.876 1.876a1 1 0 01.293.707v8.785a1 1 0 01-1 1H2a1 1 0 01-1-1V9.215a1 1 0 01.293-.707L3 6.632V4z" />
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                     </svg>
-                    <span>Generate & Deploy</span>
+                    <span>Deploy</span>
                   </>
                 )}
               </button>
@@ -966,36 +890,6 @@ const BuilderPage = () => {
 
             {/* Action Buttons */}
             <div className="grid grid-cols-1 gap-4">
-              {/* Deploy Existing Website Button */}
-              {(htmlCode || cssCode || jsCode) && (
-                <button
-                  className={`w-full py-3 rounded-xl shadow-lg font-medium flex items-center justify-center space-x-2 transition-all duration-300 transform hover:scale-[1.02] 
-                    ${deploying
-                      ? 'bg-gray-700 cursor-not-allowed'
-                      : 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700'
-                    }`}
-                  onClick={handleDeployExisting}
-                  disabled={loading || deploying}
-                >
-                  {deploying ? (
-                    <>
-                      <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      <span>Deploying to Vercel...</span>
-                    </>
-                  ) : (
-                    <>
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                      </svg>
-                      <span>Deploy to Vercel</span>
-                    </>
-                  )}
-                </button>
-              )}
-              
               <button
                 className="w-full bg-gradient-to-r from-gray-700 to-gray-800 py-3 rounded-xl shadow-lg 
                   font-medium flex items-center justify-center space-x-2 transition-all duration-300 transform hover:scale-[1.02] 

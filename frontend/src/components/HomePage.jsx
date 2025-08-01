@@ -477,9 +477,9 @@ const HomePage = () => {
                     ),
                   },
                   {
-                    title: "Cross-Browser Compatibility",
+                    title: "One-Click Deployment",
                     description:
-                      "Code that works consistently across all modern browsers with automatic prefixing.",
+                      "              Deploy your websites instantly to Vercel with live URLs. No configuration required.",
                     gradient: "from-violet-500 to-violet-600",
                     icon: (
                       <svg
