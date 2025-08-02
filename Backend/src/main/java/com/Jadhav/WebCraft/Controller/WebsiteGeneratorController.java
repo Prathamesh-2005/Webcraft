@@ -22,7 +22,7 @@ import java.util.regex.Pattern;
 
 @RestController
 @RequestMapping("/")  // Keep original path for compatibility
-@CrossOrigin(origins = {"http://localhost:5173", "http://localhost:3000"})
+@CrossOrigin(origins ="http://localhost:5173")
 public class WebsiteGeneratorController {
     private static final Logger logger = LoggerFactory.getLogger(WebsiteGeneratorController.class);
     private static final Pattern VALID_PROJECT_NAME = Pattern.compile("^[a-z0-9]([a-z0-9-]*[a-z0-9])?$");
@@ -56,7 +56,6 @@ public class WebsiteGeneratorController {
                         .body(new ErrorResponse("Validation Error", "Prompt cannot be empty"));
             }
 
-            // Validate prompt length
             if (request.getPrompt().length() > 5000) {
                 return ResponseEntity.badRequest()
                         .body(new ErrorResponse("Validation Error", "Prompt is too long (max 5000 characters)"));
@@ -103,7 +102,6 @@ public class WebsiteGeneratorController {
         try {
             logger.info("Deploy endpoint called");
 
-            // Check if Netlify is configured
             if (netlifyToken == null || netlifyToken.trim().isEmpty()) {
                 logger.error("Netlify token not configured");
                 return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
@@ -119,15 +117,13 @@ public class WebsiteGeneratorController {
                         .body(new ErrorResponse("Validation Error", errorMsg));
             }
 
-            // Validate required fields
             if (request.getHtml() == null || request.getHtml().trim().isEmpty()) {
                 logger.error("HTML content is missing");
                 return ResponseEntity.badRequest()
                         .body(new ErrorResponse("Validation Error", "HTML content cannot be empty"));
             }
 
-            // Validate HTML content size (Netlify has limits)
-            if (request.getHtml().length() > 25 * 1024 * 1024) { // 25MB limit
+            if (request.getHtml().length() > 25 * 1024 * 1024) {
                 logger.error("HTML content too large: {} bytes", request.getHtml().length());
                 return ResponseEntity.badRequest()
                         .body(new ErrorResponse("Validation Error", "HTML content is too large (max 25MB)"));
@@ -139,7 +135,6 @@ public class WebsiteGeneratorController {
                         .body(new ErrorResponse("Validation Error", "Project name cannot be empty"));
             }
 
-            // Sanitize and validate project name
             String sanitizedProjectName = sanitizeProjectName(request.getProjectName());
             if (!isValidProjectName(sanitizedProjectName)) {
                 sanitizedProjectName = generateFallbackProjectName();
@@ -256,21 +251,17 @@ public class WebsiteGeneratorController {
             return generateFallbackProjectName();
         }
 
-        // Convert to lowercase and remove invalid characters
         String sanitized = projectName.toLowerCase()
-                .replaceAll("[^a-z0-9\\s-]", "")  // Keep only alphanumeric, spaces, and hyphens
-                .replaceAll("\\s+", "-")           // Replace spaces with hyphens
-                .replaceAll("-+", "-")             // Replace multiple hyphens with single
-                .replaceAll("^-+|-+$", "");        // Remove leading/trailing hyphens
+                .replaceAll("[^a-z0-9\\s-]", "")
+                .replaceAll("\\s+", "-")
+                .replaceAll("-+", "-")
+                .replaceAll("^-+|-+$", "");
 
-        // Ensure length constraints
         if (sanitized.length() > MAX_PROJECT_NAME_LENGTH) {
             sanitized = sanitized.substring(0, MAX_PROJECT_NAME_LENGTH);
-            // Remove trailing hyphen if created by truncation
             sanitized = sanitized.replaceAll("-+$", "");
         }
 
-        // If too short or empty after sanitization, generate fallback
         if (sanitized.length() < MIN_PROJECT_NAME_LENGTH) {
             return generateFallbackProjectName();
         }

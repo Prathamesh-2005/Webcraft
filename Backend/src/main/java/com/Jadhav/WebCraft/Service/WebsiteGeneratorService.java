@@ -32,7 +32,6 @@ public class WebsiteGeneratorService {
                 response = createFallbackResponse(prompt);
             }
 
-            // Validate and clean the response
             response = validateAndCleanResponse(response, prompt);
 
             logger.info("Successfully generated website with HTML: {} chars, CSS: {} chars, JS: {} chars",
@@ -50,19 +49,16 @@ public class WebsiteGeneratorService {
             return createFallbackResponse(prompt);
         }
 
-        // Clean and validate HTML
         String html = cleanHtml(response.getHtml());
         if (isNullOrEmpty(html)) {
             html = createFallbackHtml(prompt);
         }
 
-        // Clean and validate CSS
         String css = cleanCss(response.getCss());
         if (isNullOrEmpty(css)) {
             css = createFallbackCss();
         }
 
-        // Clean and validate JavaScript
         String js = cleanJavaScript(response.getJs());
         if (isNullOrEmpty(js)) {
             js = createFallbackJs();
@@ -74,12 +70,10 @@ public class WebsiteGeneratorService {
     private String cleanHtml(String html) {
         if (isNullOrEmpty(html)) return "";
 
-        // Ensure proper HTML structure
         if (!html.trim().startsWith("<!DOCTYPE") && !html.trim().startsWith("<html")) {
             html = "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"UTF-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n<title>Generated Website</title>\n</head>\n<body>\n" + html + "\n</body>\n</html>";
         }
 
-        // Fix common HTML issues
         html = html.replace("\\\"", "\"")
                 .replace("\\'", "'")
                 .replace("\\n", "\n")
@@ -91,14 +85,12 @@ public class WebsiteGeneratorService {
     private String cleanCss(String css) {
         if (isNullOrEmpty(css)) return "";
 
-        // Remove any wrapping quotes or escapes
         css = css.replace("\\\"", "\"")
                 .replace("\\'", "'")
                 .replace("\\n", "\n")
                 .replace("\\t", "\t")
                 .replace("\\r", "\r");
 
-        // Ensure CSS has basic structure
         if (!css.contains("body") && !css.contains("*")) {
             css = "body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }\n" + css;
         }
@@ -116,27 +108,22 @@ public class WebsiteGeneratorService {
                 .replace("\\t", "\t")
                 .replace("\\r", "\r");
 
-        // Check for common syntax errors
         js = fixCommonJsSyntaxErrors(js);
 
         return js.trim();
     }
 
     private String fixCommonJsSyntaxErrors(String js) {
-        // Fix incomplete if statements
         js = js.replaceAll("if\\s*\\([^)]*\\)\\s*\\{[^}]*$", "");
 
-        // Fix incomplete function declarations
         js = js.replaceAll("function\\s+\\w+\\s*\\([^)]*\\)\\s*\\{[^}]*$", "");
 
-        // Remove incomplete statements
         String[] lines = js.split("\n");
         StringBuilder cleanJs = new StringBuilder();
 
         for (String line : lines) {
             line = line.trim();
             if (!line.isEmpty() && !line.endsWith("s") || line.endsWith("s;") || line.endsWith("s}")) {
-                // Skip lines that end with just 's' (common error)
                 if (!line.equals("s") && !line.endsWith(" s")) {
                     cleanJs.append(line).append("\n");
                 }
@@ -147,7 +134,6 @@ public class WebsiteGeneratorService {
     }
 
     private GenerateResponse parseAIResponse(String aiResponse) {
-        // Strategy 1: Direct JSON parsing
         try {
             GenerateResponse result = parseAsDirectJson(aiResponse);
             if (result != null && !isEmptyResponse(result)) {
@@ -158,7 +144,6 @@ public class WebsiteGeneratorService {
             logger.warn("Direct JSON parsing failed: {}", e.getMessage());
         }
 
-        // Strategy 2: Regex extraction
         try {
             GenerateResponse result = parseWithImprovedRegex(aiResponse);
             if (result != null && !isEmptyResponse(result)) {
@@ -169,7 +154,6 @@ public class WebsiteGeneratorService {
             logger.warn("Improved regex parsing failed: {}", e.getMessage());
         }
 
-        // Strategy 3: Manual extraction
         try {
             GenerateResponse result = parseWithBetterManualExtraction(aiResponse);
             if (result != null && !isEmptyResponse(result)) {

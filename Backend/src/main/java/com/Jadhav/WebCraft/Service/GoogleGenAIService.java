@@ -111,14 +111,11 @@ public class GoogleGenAIService {
     }
 
     private String cleanAIResponse(String response) {
-        // Remove any markdown code blocks
         response = response.replaceAll("```(?:json|javascript|js)?\\s*", "");
         response = response.replaceAll("```", "");
 
-        // Remove any explanatory text before or after JSON
         response = response.trim();
 
-        // Find the JSON object boundaries
         int firstBrace = response.indexOf('{');
         int lastBrace = response.lastIndexOf('}');
 
@@ -126,13 +123,10 @@ public class GoogleGenAIService {
             response = response.substring(firstBrace, lastBrace + 1);
         }
 
-        // Additional cleaning
-        response = response.replaceAll("^[^{]*", ""); // Remove anything before first {
-        response = response.replaceAll("[^}]*$", ""); // Remove anything after last }
+        response = response.replaceAll("^[^{]*", "");
+        response = response.replaceAll("[^}]*$", "");
 
-        // Ensure the response ends with }
         if (!response.trim().endsWith("}")) {
-            // Try to find the last complete JSON structure
             int lastValidBrace = response.lastIndexOf('}');
             if (lastValidBrace != -1) {
                 response = response.substring(0, lastValidBrace + 1);

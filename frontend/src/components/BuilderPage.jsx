@@ -16,7 +16,7 @@ const BuilderPage = () => {
   const [error, setError] = useState('');
   const [generationStage, setGenerationStage] = useState('');
   
-  // Vercel deployment states
+  // Netlify deployment states
   const [deploying, setDeploying] = useState(false);
   const [deploymentUrl, setDeploymentUrl] = useState('');
   const [deploymentHistory, setDeploymentHistory] = useState([]);
@@ -158,7 +158,7 @@ const BuilderPage = () => {
 
   const deploymentStages = [
     "Preparing files for deployment...",
-    "Uploading to Vercel...",
+    "Uploading to Netlify...",
     "Building your website...",
     "Deploying to production...",
     "Finalizing deployment...",
@@ -428,7 +428,7 @@ const BuilderPage = () => {
               </div>
               
               <h3 className="text-xl font-bold text-white mb-2">🎉 Deployment Successful!</h3>
-              <p className="text-gray-300 mb-4">Your website is now live on Vercel</p>
+              <p className="text-gray-300 mb-4">Your website is now live on Netlify</p>
               
               <div className="bg-gray-800/50 p-3 rounded-lg mb-4">
                 <p className="text-sm text-gray-400 mb-1">Live URL:</p>
@@ -967,7 +967,7 @@ const BuilderPage = () => {
             </div>
             <h3 className="text-lg font-semibold text-white mb-2">One-Click Deployment</h3>
             <p className="text-gray-300 text-sm">
-              Deploy your websites instantly to Vercel with live URLs. No configuration required.
+              Deploy your websites instantly to Netlify with live URLs. No configuration required.
             </p>
           </div>
 
@@ -1080,7 +1080,7 @@ const BuilderPage = () => {
                 <span>All systems operational</span>
               </span>
               <span>•</span>
-              <span>Powered by AI & Vercel</span>
+              <span>Powered by AI & Netlify</span>
             </div>
           </div>
         </div>

@@ -479,7 +479,7 @@ const HomePage = () => {
                   {
                     title: "One-Click Deployment",
                     description:
-                      "              Deploy your websites instantly to Vercel with live URLs. No configuration required.",
+                      "Deploy your websites instantly to Netlify with live URLs. No configuration required.",
                     gradient: "from-violet-500 to-violet-600",
                     icon: (
                       <svg
