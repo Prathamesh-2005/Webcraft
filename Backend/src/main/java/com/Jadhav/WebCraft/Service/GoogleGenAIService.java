@@ -67,6 +67,9 @@ public class GoogleGenAIService {
             - Include proper title and meta description
             - All elements must have proper closing tags
             - No incomplete or malformed tags
+                + - LINK the CSS as an external file using: <link rel="stylesheet" href="styles.css">
+                + - LINK the JavaScript as an external file using: <script src="script.js"></script>
+                + - Do NOT include <style> or <script> blocks inside the HTML
             
             CSS REQUIREMENTS:
             - Modern, responsive design with mobile-first approach
