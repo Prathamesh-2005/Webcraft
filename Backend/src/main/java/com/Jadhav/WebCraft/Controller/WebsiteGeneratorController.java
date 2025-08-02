@@ -22,7 +22,7 @@ import java.util.regex.Pattern;
 
 @RestController
 @RequestMapping("/")
-@CrossOrigin(origins ="https://webcraft-rose.vercel.app/")
+@CrossOrigin(origins ="https://webcraft-iota.vercel.app/")
 public class WebsiteGeneratorController {
     private static final Logger logger = LoggerFactory.getLogger(WebsiteGeneratorController.class);
     private static final Pattern VALID_PROJECT_NAME = Pattern.compile("^[a-z0-9]([a-z0-9-]*[a-z0-9])?$");

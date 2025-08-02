@@ -14,7 +14,7 @@ public class CorsConfig implements WebMvcConfigurer {
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**")
-                .allowedOrigins("https://webcraft-rose.vercel.app/")
+                .allowedOrigins("https://webcraft-iota.vercel.app/")
                 .allowedMethods("*")
                 .allowedHeaders("*")
                 .allowCredentials(true)
