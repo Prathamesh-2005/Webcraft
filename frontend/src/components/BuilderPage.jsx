@@ -1,4 +1,3 @@
-// BuilderPage.js
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Editor from '@monaco-editor/react';
 import axios from 'axios';
@@ -15,13 +14,13 @@ const BuilderPage = () => {
   const [showFullscreen, setShowFullscreen] = useState(false);
   const [error, setError] = useState('');
   const [generationStage, setGenerationStage] = useState('');
-  
+
   // Netlify deployment states
   const [deploying, setDeploying] = useState(false);
   const [deploymentUrl, setDeploymentUrl] = useState('');
   const [deploymentHistory, setDeploymentHistory] = useState([]);
   const [showDeploymentModal, setShowDeploymentModal] = useState(false);
-  
+
   // Voice input states
   const [isListening, setIsListening] = useState(false);
   const [voiceSupported, setVoiceSupported] = useState(false);
@@ -35,7 +34,7 @@ const BuilderPage = () => {
       setVoiceSupported(true);
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       recognitionRef.current = new SpeechRecognition();
-      
+
       recognitionRef.current.continuous = false;
       recognitionRef.current.interimResults = false;
       recognitionRef.current.lang = 'en-US';
@@ -167,11 +166,11 @@ const BuilderPage = () => {
 
   const handleGenerate = async () => {
     if (!prompt.trim()) return;
-    
+
     setLoading(true);
     setError('');
     setGenerationStage(generationStages[0]);
-    
+
     // Simulate progress stages
     const stageInterval = setInterval(() => {
       setGenerationStage(prev => {
@@ -182,20 +181,20 @@ const BuilderPage = () => {
         return prev;
       });
     }, 1500);
-    
+
     try {
       const res = await axios.post('http://localhost:8080/generate', { prompt });
-      
+
       // Validate the response
       if (!res.data || (!res.data.html && !res.data.css && !res.data.js)) {
         throw new Error('Invalid response from server');
       }
-      
+
       setHtmlCode(res.data.html || '');
       setCssCode(res.data.css || '');
       setJsCode(res.data.js || '');
       setPreviewKey(prev => prev + 1);
-      
+
     } catch (err) {
       console.error('Generation error:', err);
       setError(err.response?.data?.message || err.message || 'Error generating code');
@@ -211,11 +210,11 @@ const BuilderPage = () => {
       setError('No code to deploy. Please generate a website first.');
       return;
     }
-    
+
     setDeploying(true);
     setError('');
     setGenerationStage(deploymentStages[0]);
-    
+
     // Simulate deployment progress
     const stageInterval = setInterval(() => {
       setGenerationStage(prev => {
@@ -226,7 +225,7 @@ const BuilderPage = () => {
         return prev;
       });
     }, 1500);
-    
+
     try {
       const projectName = `webcraft-${Date.now()}`;
       const res = await axios.post('http://localhost:8080/deploy', {
@@ -235,10 +234,10 @@ const BuilderPage = () => {
         js: jsCode,
         projectName: projectName
       });
-      
+
       if (res.data.deployed && res.data.deploymentUrl) {
         setDeploymentUrl(res.data.deploymentUrl);
-        
+
         // Add to deployment history
         const newDeployment = {
           id: Date.now(),
@@ -247,11 +246,11 @@ const BuilderPage = () => {
           timestamp: new Date().toISOString(),
           prompt: 'Website deployment'
         };
-        
+
         setDeploymentHistory(prev => [newDeployment, ...prev.slice(0, 4)]);
         setShowDeploymentModal(true);
       }
-      
+
     } catch (err) {
       console.error('Deployment error:', err);
       setError(err.response?.data?.message || err.message || 'Error deploying website');
@@ -265,28 +264,28 @@ const BuilderPage = () => {
   // Sanitize and clean the generated code
   const sanitizeCode = useCallback((code, type) => {
     if (!code) return '';
-    
+
     // Remove any script tags that try to load external resources
     if (type === 'html') {
       return code.replace(/<script[^>]*src[^>]*><\/script>/gi, '')
-                 .replace(/<link[^>]*rel=["']stylesheet["'][^>]*>/gi, (match) => {
-                   // Only allow inline styles, remove external CSS links
-                   return match.includes('href') ? '' : match;
-                 })
-                 // Prevent navigation by replacing href attributes
-                 .replace(/href=["'][^"']*["']/gi, 'href="#"')
-                 // Add click prevention to all links
-                 .replace(/<a\s/gi, '<a onclick="event.preventDefault(); return false;" ');
+        .replace(/<link[^>]*rel=["']stylesheet["'][^>]*>/gi, (match) => {
+          // Only allow inline styles, remove external CSS links
+          return match.includes('href') ? '' : match;
+        })
+        // Prevent navigation by replacing href attributes
+        .replace(/href=["'][^"']*["']/gi, 'href="#"')
+        // Add click prevention to all links
+        .replace(/<a\s/gi, '<a onclick="event.preventDefault(); return false;" ');
     }
-    
+
     // Clean JavaScript
     if (type === 'js') {
       // Remove any import/require statements that might cause issues
       return code.replace(/import\s+.*?from\s+['"][^'"]*['"];?\s*/gi, '')
-                 .replace(/require\s*\(['"][^'"]*['"]\);?\s*/gi, '')
-                 .replace(/console\.log\s*\(/g, '// console.log('); // Comment out console.logs
+        .replace(/require\s*\(['"][^'"]*['"]\);?\s*/gi, '')
+        .replace(/console\.log\s*\(/g, '// console.log('); // Comment out console.logs
     }
-    
+
     return code;
   }, []);
 
@@ -426,22 +425,22 @@ const BuilderPage = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              
+
               <h3 className="text-xl font-bold text-white mb-2">🎉 Deployment Successful!</h3>
               <p className="text-gray-300 mb-4">Your website is now live on Netlify</p>
-              
+
               <div className="bg-gray-800/50 p-3 rounded-lg mb-4">
                 <p className="text-sm text-gray-400 mb-1">Live URL:</p>
-                <a 
-                  href={deploymentUrl} 
-                  target="_blank" 
+                <a
+                  href={deploymentUrl}
+                  target="_blank"
                   rel="noopener noreferrer"
                   className="text-blue-400 hover:text-blue-300 underline break-all"
                 >
                   {deploymentUrl}
                 </a>
               </div>
-              
+
               <div className="flex space-x-3">
                 <button
                   onClick={() => setShowDeploymentModal(false)}
@@ -473,7 +472,7 @@ const BuilderPage = () => {
               </svg>
               Fullscreen Preview
             </h2>
-            <button 
+            <button
               className="bg-gray-700 hover:bg-gray-600 p-2 rounded-full transition-colors"
               onClick={() => setShowFullscreen(false)}
             >
@@ -500,14 +499,14 @@ const BuilderPage = () => {
             <Link to="/" className="flex items-center space-x-3">
               <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-2 rounded-lg">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" viewBox="0 0 24 24" fill="none">
-                  <path d="M10 20L14 4M18 8L22 12L18 16M6 16L2 12L6 8" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M10 20L14 4M18 8L22 12L18 16M6 16L2 12L6 8" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </div>
               <h1 className="text-3xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-300 via-purple-300 to-indigo-300">
                 WebCraft
               </h1>
             </Link>
-            
+
             <div className="flex items-center space-x-4">
               {/* Download Dropdown */}
               <div className="relative group">
@@ -520,7 +519,7 @@ const BuilderPage = () => {
                     <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
                   </svg>
                 </button>
-                
+
                 <div className="absolute right-0 mt-2 w-48 bg-gray-800 rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-50 border border-gray-700">
                   <div className="py-2">
                     <button
@@ -561,10 +560,10 @@ const BuilderPage = () => {
               </div>
 
               {/* Generate Button */}
-              <button 
+              <button
                 className={`px-6 py-3 rounded-xl shadow-lg font-medium flex items-center space-x-2 transition-all duration-300 transform hover:scale-105
-                  ${loading 
-                    ? 'bg-gray-700 cursor-not-allowed' 
+                  ${loading
+                    ? 'bg-gray-700 cursor-not-allowed'
                     : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700'
                   }`}
                 onClick={handleGenerate}
@@ -589,10 +588,10 @@ const BuilderPage = () => {
               </button>
 
               {/* Deploy Button */}
-              <button 
+              <button
                 className={`px-6 py-3 rounded-xl shadow-lg font-medium flex items-center space-x-2 transition-all duration-300 transform hover:scale-105
                   ${deploying
-                    ? 'bg-gray-700 cursor-not-allowed' 
+                    ? 'bg-gray-700 cursor-not-allowed'
                     : 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700'
                   }`}
                 onClick={handleDeploy}
@@ -623,11 +622,10 @@ const BuilderPage = () => {
       {/* Loading/Deployment Status */}
       {(loading || deploying) && generationStage && (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
-          <div className={`border px-6 py-4 rounded-xl flex items-center backdrop-blur-sm ${
-            deploying 
+          <div className={`border px-6 py-4 rounded-xl flex items-center backdrop-blur-sm ${deploying
               ? 'bg-gradient-to-r from-purple-900/50 to-pink-900/50 border-purple-600/30 text-purple-200'
               : 'bg-gradient-to-r from-blue-900/50 to-purple-900/50 border-blue-600/30 text-blue-200'
-          }`}>
+            }`}>
             <div className="flex items-center space-x-3">
               <div className="flex space-x-1">
                 <div className={`w-2 h-2 rounded-full animate-bounce ${deploying ? 'bg-purple-400' : 'bg-blue-400'}`}></div>
@@ -652,9 +650,9 @@ const BuilderPage = () => {
               </div>
               <div>
                 <p className="font-medium">🎉 Your website is live!</p>
-                <a 
-                  href={deploymentUrl} 
-                  target="_blank" 
+                <a
+                  href={deploymentUrl}
+                  target="_blank"
                   rel="noopener noreferrer"
                   className="text-green-300 hover:text-green-200 underline text-sm break-all"
                 >
@@ -711,7 +709,7 @@ const BuilderPage = () => {
                     <span className="text-sm text-green-400">Safe Mode</span>
                   </div>
                 </div>
-                
+
                 <div className="relative bg-gray-900 rounded-lg overflow-hidden shadow-xl h-[500px] md:h-[700px]">
                   {htmlCode || cssCode || jsCode ? (
                     <iframe
@@ -738,10 +736,10 @@ const BuilderPage = () => {
                       </div>
                     </div>
                   )}
-                  
+
                   {/* Control Buttons */}
                   <div className="absolute bottom-4 right-4 z-20 flex space-x-2">
-                    <button 
+                    <button
                       className="preview-refresh bg-gray-800/80 backdrop-blur-sm p-2 rounded-full hover:bg-gray-700 transition-all"
                       onClick={() => setPreviewKey(prev => prev + 1)}
                     >
@@ -749,8 +747,8 @@ const BuilderPage = () => {
                         <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
                       </svg>
                     </button>
-                    
-                    <button 
+
+                    <button
                       className="bg-gray-800/80 backdrop-blur-sm p-2 rounded-full hover:bg-gray-700 transition-all"
                       onClick={() => setShowFullscreen(true)}
                       disabled={!htmlCode && !cssCode && !jsCode}
@@ -778,15 +776,15 @@ const BuilderPage = () => {
                     </svg>
                     Describe Your Website
                   </h2>
-                  
+
                   {/* Voice Input Button */}
                   {voiceSupported && (
                     <button
                       onClick={isListening ? stopListening : startListening}
                       disabled={loading || deploying}
                       className={`p-2 rounded-full transition-all duration-300 flex items-center space-x-2 
-                        ${isListening 
-                          ? 'bg-red-600 hover:bg-red-700 animate-pulse' 
+                        ${isListening
+                          ? 'bg-red-600 hover:bg-red-700 animate-pulse'
                           : 'bg-purple-600 hover:bg-purple-700'
                         }`}
                       title={isListening ? 'Stop listening' : 'Start voice input'}
@@ -797,7 +795,7 @@ const BuilderPage = () => {
                     </button>
                   )}
                 </div>
-                
+
                 <div className="relative">
                   <textarea
                     className="w-full bg-gray-800/50 rounded-xl p-4 text-gray-200 placeholder-gray-500 
@@ -808,7 +806,7 @@ const BuilderPage = () => {
                     onChange={(e) => setPrompt(e.target.value)}
                     disabled={loading || deploying}
                   />
-                  
+
                   {/* Voice indicator */}
                   {isListening && (
                     <div className="absolute top-2 right-2 flex items-center space-x-2 bg-red-600/20 backdrop-blur-sm rounded-lg px-3 py-1">
@@ -821,7 +819,7 @@ const BuilderPage = () => {
                     </div>
                   )}
                 </div>
-                
+
                 <div className="mt-3 flex justify-between items-center">
                   <div className="text-sm text-gray-400 flex items-center">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
@@ -829,7 +827,7 @@ const BuilderPage = () => {
                     </svg>
                     Be as descriptive as possible for better results
                   </div>
-                  
+
                   {voiceSupported && (
                     <div className="text-sm text-gray-500 flex items-center">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" viewBox="0 0 20 20" fill="currentColor">
@@ -865,7 +863,7 @@ const BuilderPage = () => {
                     </button>
                   ))}
                 </div>
-                
+
                 <div className="p-4 h-[400px]">
                   <Editor
                     language={activeTab === 'js' ? 'javascript' : activeTab}
@@ -993,7 +991,7 @@ const BuilderPage = () => {
               </svg>
               Pro Tips for Better Results
             </h3>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-4">
                 <div className="flex items-start space-x-3">
@@ -1007,7 +1005,7 @@ const BuilderPage = () => {
                     <p className="text-sm text-gray-400">Include details about colors, layout, functionality, and target audience.</p>
                   </div>
                 </div>
-                
+
                 <div className="flex items-start space-x-3">
                   <div className="bg-blue-500/20 p-1 rounded-full flex-shrink-0 mt-1">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
@@ -1019,7 +1017,7 @@ const BuilderPage = () => {
                     <p className="text-sm text-gray-400">Mention specific elements like headers, navigation, forms, or image galleries.</p>
                   </div>
                 </div>
-                
+
                 <div className="flex items-start space-x-3">
                   <div className="bg-blue-500/20 p-1 rounded-full flex-shrink-0 mt-1">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
@@ -1032,17 +1030,17 @@ const BuilderPage = () => {
                   </div>
                 </div>
               </div>
-              
+
               <div className="space-y-4">
                 <div className="bg-gray-800/50 rounded-lg p-4">
                   <h4 className="font-medium text-gray-200 mb-2">Example Prompt:</h4>
                   <p className="text-sm text-gray-400 italic">
-                    "Create a modern landing page for a tech startup with a dark theme, gradient backgrounds, 
-                    hero section with call-to-action button, features grid, testimonials carousel, and contact form. 
+                    "Create a modern landing page for a tech startup with a dark theme, gradient backgrounds,
+                    hero section with call-to-action button, features grid, testimonials carousel, and contact form.
                     Use blue and purple accent colors with smooth animations."
                   </p>
                 </div>
-                
+
                 <div className="flex items-center space-x-2 text-sm text-gray-400">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -1062,7 +1060,7 @@ const BuilderPage = () => {
             <div className="flex items-center space-x-3 mb-4 md:mb-0">
               <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-2 rounded-lg">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 24 24" fill="none">
-                  <path d="M10 20L14 4M18 8L22 12L18 16M6 16L2 12L6 8" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M10 20L14 4M18 8L22 12L18 16M6 16L2 12L6 8" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </div>
               <div>
@@ -1070,7 +1068,7 @@ const BuilderPage = () => {
                 <p className="text-sm text-gray-400">AI-Powered Web Development</p>
               </div>
             </div>
-            
+
             <div className="flex items-center space-x-6 text-sm text-gray-400">
               <span className="flex items-center space-x-2">
                 <div className="flex h-2 w-2">
