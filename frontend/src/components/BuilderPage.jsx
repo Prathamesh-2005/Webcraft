@@ -183,7 +183,7 @@ const BuilderPage = () => {
     }, 1500);
 
     try {
-      const res = await axios.post('http://localhost:8080/generate', { prompt });
+      const res = await axios.post('https://webcraft-imfs.onrender.com/generate', { prompt });
 
       // Validate the response
       if (!res.data || (!res.data.html && !res.data.css && !res.data.js)) {
@@ -228,7 +228,7 @@ const BuilderPage = () => {
 
     try {
       const projectName = `webcraft-${Date.now()}`;
-      const res = await axios.post('http://localhost:8080/deploy', {
+      const res = await axios.post('https://webcraft-imfs.onrender.com/deploy', {
         html: htmlCode,
         css: cssCode,
         js: jsCode,

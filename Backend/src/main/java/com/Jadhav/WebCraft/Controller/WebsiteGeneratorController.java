@@ -21,7 +21,7 @@ import java.util.Map;
 import java.util.regex.Pattern;
 
 @RestController
-@RequestMapping("/")  // Keep original path for compatibility
+@RequestMapping("/")
 @CrossOrigin(origins ="http://localhost:5173")
 public class WebsiteGeneratorController {
     private static final Logger logger = LoggerFactory.getLogger(WebsiteGeneratorController.class);
