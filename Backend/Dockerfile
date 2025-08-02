@@ -3,10 +3,12 @@ FROM maven:3.9.6-eclipse-temurin-21 AS builder
 WORKDIR /app
 
 COPY pom.xml .
-COPY src ./src
 COPY .mvn .mvn
 COPY mvnw .
 COPY mvnw.cmd .
+COPY src ./src
+
+RUN chmod +x mvnw
 
 RUN ./mvnw clean package -DskipTests
 
